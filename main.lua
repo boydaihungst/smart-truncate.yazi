@@ -52,7 +52,7 @@ end
 ---@param max_width number max width of the area entity will be rendered. For example: `area.w`
 function M:smart_truncate_entity(entity, max_width)
 	local thisPlugin = self
-	entity._components = entity._components or {}
+	entity._components = {}
 	local resizable_entity_children_ids_set = to_unique_set(thisPlugin.resizable_entity_children_ids)
 	if thisPlugin.resizable_entity_children_ids and #thisPlugin.resizable_entity_children_ids > 0 then
 		-- Override Entity.render function for this entity
@@ -383,11 +383,18 @@ function M:children_add(children, callback)
 	self:render_entities()
 end
 
-function M:children_remove(children_id)
+function M:children_remove(children)
+	if type(children) == "string" then
+		children = Entity:get_component_id_by_fn_name(children)
+		if not children then
+			return
+		end
+	end
+
 	for idx, id in ipairs(self.resizable_entity_children_ids) do
-		if id == children_id then
+		if id == children then
 			table.remove(self.resizable_entity_children_ids, idx)
-			table.remove(self.children_callbacks, children_id)
+			table.remove(self.children_callbacks, children)
 			self:render_entities()
 			return
 		end

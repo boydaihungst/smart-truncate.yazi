@@ -1,6 +1,6 @@
 # smart-truncate.yazi
 
-A [Yazi](https://github.com/sxyazi/yazi) plugin that truncates any entity component to better fit the screen.
+A [Yazi](https://github.com/sxyazi/yazi) plugin to truncate any component when rendering using Entity.
 
 ## Requirements
 
@@ -13,7 +13,6 @@ A [Yazi](https://github.com/sxyazi/yazi) plugin that truncates any entity compon
   ![](assets/2025-05-15-04-24-13.png)
 
 - Parent pane:
-
   ![](assets/2025-05-15-04-23-46.png)
 
 - Preview pane:
@@ -58,7 +57,6 @@ smart_truncate:setup({
 	render_current = true,
 	-- Default only name and symlink will be truncated if overflow. 4 -> highlights/name, 6 -> symlink
 	-- IDs can be found in https://github.com/sxyazi/yazi/blob/main/yazi-plugin/preset/components/entity.lua#L4-L9
-	-- For other official components, see Advaned Usage section below
 	-- resizable_entity_children_ids = { 4, 6 },
 })
 ```
@@ -81,7 +79,7 @@ Add this after `smart_truncate:setup(...)` function:
   end
   ```
 
-  1. Using component function name, like this official [Entity.\_children list](https://github.com/sxyazi/yazi/blob/main/yazi-plugin/preset/components/entity.lua#L4-L9):
+  1. Using component function name, like this official (Entity.\_children list)[https://github.com/sxyazi/yazi/blob/main/yazi-plugin/preset/components/entity.lua#L4-L9]:
      By default, highlights/name and symlink are already added.
 
   ```lua
@@ -130,53 +128,65 @@ Add this after `smart_truncate:setup(...)` function:
   end)
   ```
 
+###
+
+> [!NOTE]
+> To remove child component:
+
+```lua
+  -- Use this if you want to remove the component from the list of resizable components (allow the component to be rendered overflowing the pane)
+  smart_truncate:children_remove(a_sample_conponent_id_or_function_name)`
+  -- Use this if you want to get rid of the component completely
+  Entity:children_remove(a_sample_component_id)
+
+```
+
 #### For custom plugins which replaced `Current.redraw`, `Parent.redraw` or any function which using `Entity:redraw`
 
 You can use `smart_truncate_entity_plugin:smart_truncate_entity(entity, max_width)` function to shorten the text in the pane.
 For example, this relative-motions (my fork) plugin:
 
 Parent pane:
-
 ![](assets/2025-05-15-04-15-30.png)
 
 ```lua
-  local smart_truncate_entity_plugin_ok, smart_truncate_entity_plugin = pcall(require, "smart-truncate")
+	local smart_truncate_entity_plugin_ok, smart_truncate_entity_plugin = pcall(require, "smart-truncate")
 
-  Parent.redraw = function(parent_self)
-  	if not parent_self._folder then
-  		return {}
-  	end
+  	Parent.redraw = function(parent_self)
+		if not parent_self._folder then
+			return {}
+		end
 
-  	local entities = {}
-  	local parent_tab_window_w = parent_self._area.w
-  	for _, f in ipairs(parent_self._folder.window) do
-  		local entity = Entity:new(f)
-  		if resizable_entity_children_ids then
-  			if smart_truncate_entity_plugin_ok then
-  				smart_truncate_entity_plugin:smart_truncate_entity(entity, parent_tab_window_w)
-  			else
-  				if not state.warned_smart_truncate_missing then
-  					state.warned_smart_truncate_missing = true
-  					warn(
-  						"smart-truncate plugin is not installed, please install it to use smart truncate feature \nor set smart_truncate = false in setup function"
-  					)
-  					return
-  				end
-  			end
-  		end
-  		-- Fall back to default render behaviour
-  		if state.warned_smart_truncate_missing or not resizable_entity_children_ids then
-  			entities[#entities + 1] = entity:redraw():truncate { max = parent_self._area.w }
-  		else
-  			-- Using smart truncate
-  			entities[#entities + 1] = ui.Line({ entity:redraw() }):style(entity:style())
-  		end
-  	end
+		local entities = {}
+		local parent_tab_window_w = parent_self._area.w
+		for _, f in ipairs(parent_self._folder.window) do
+			local entity = Entity:new(f)
+			if resizable_entity_children_ids then
+				if smart_truncate_entity_plugin_ok then
+					smart_truncate_entity_plugin:smart_truncate_entity(entity, parent_tab_window_w)
+				else
+					if not state.warned_smart_truncate_missing then
+						state.warned_smart_truncate_missing = true
+						warn(
+							"smart-truncate plugin is not installed, please install it to use smart truncate feature \nor set smart_truncate = false in setup function"
+						)
+						return
+					end
+				end
+			end
+			-- Fall back to default render behaviour
+			if state.warned_smart_truncate_missing or not resizable_entity_children_ids then
+				entities[#entities + 1] = entity:redraw():truncate({ max = parent_self._area.w })
+			else
+				-- Using smart truncate
+				entities[#entities + 1] = ui.Line({ entity:redraw() }):style(entity:style())
+			end
+		end
 
-  	return {
-  		ui.List(entities):area(parent_self._area),
-  	}
-  end
+		return {
+			ui.List(entities):area(parent_self._area),
+		}
+	end
 ```
 
 #### For relative-motions (my fork) plugin users:
