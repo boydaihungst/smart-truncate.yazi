@@ -80,7 +80,7 @@ Add this after `smart_truncate:setup(...)` function:
   end
   ```
 
-  1. Using component function name, like this official (Entity.\_children list)[https://github.com/sxyazi/yazi/blob/main/yazi-plugin/preset/components/entity.lua#L4-L9]:
+  1. Using component function name, like this official [Entity._children list](https://github.com/sxyazi/yazi/blob/main/yazi-plugin/preset/components/entity.lua#L4-L9):
      By default, highlights/name and symlink are already added.
 
   ```lua
