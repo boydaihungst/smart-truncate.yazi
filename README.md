@@ -139,43 +139,43 @@ Parent pane:
 ![](assets/2025-05-15-04-15-30.png)
 
 ```lua
-	local smart_truncate_entity_plugin_ok, smart_truncate_entity_plugin = pcall(require, "smart-truncate")
-
-  	Parent.redraw = function(parent_self)
-		if not parent_self._folder then
-			return {}
-		end
-
-		local entities = {}
-		local parent_tab_window_w = parent_self._area.w
-		for _, f in ipairs(parent_self._folder.window) do
-			local entity = Entity:new(f)
-			if resizable_entity_children_ids then
-				if smart_truncate_entity_plugin_ok then
-					smart_truncate_entity_plugin:smart_truncate_entity(entity, parent_tab_window_w)
-				else
-					if not state.warned_smart_truncate_missing then
-						state.warned_smart_truncate_missing = true
-						warn(
-							"smart-truncate plugin is not installed, please install it to use smart truncate feature \nor set smart_truncate = false in setup function"
-						)
-						return
-					end
-				end
-			end
-			-- Fall back to default render behaviour
-			if state.warned_smart_truncate_missing or not resizable_entity_children_ids then
-				entities[#entities + 1] = entity:redraw():truncate({ max = parent_self._area.w })
-			else
-				-- Using smart truncate
-				entities[#entities + 1] = ui.Line({ entity:redraw() }):style(entity:style())
-			end
-		end
-
-		return {
-			ui.List(entities):area(parent_self._area),
-		}
-	end
+  local smart_truncate_entity_plugin_ok, smart_truncate_entity_plugin = pcall(require, "smart-truncate")
+  
+  Parent.redraw = function(parent_self)
+  	if not parent_self._folder then
+  		return {}
+  	end
+  
+  	local entities = {}
+  	local parent_tab_window_w = parent_self._area.w
+  	for _, f in ipairs(parent_self._folder.window) do
+  		local entity = Entity:new(f)
+  		if resizable_entity_children_ids then
+  			if smart_truncate_entity_plugin_ok then
+  				smart_truncate_entity_plugin:smart_truncate_entity(entity, parent_tab_window_w)
+  			else
+  				if not state.warned_smart_truncate_missing then
+  					state.warned_smart_truncate_missing = true
+  					warn(
+  						"smart-truncate plugin is not installed, please install it to use smart truncate feature \nor set smart_truncate = false in setup function"
+  					)
+  					return
+  				end
+  			end
+  		end
+  		-- Fall back to default render behaviour
+  		if state.warned_smart_truncate_missing or not resizable_entity_children_ids then
+  			entities[#entities + 1] = entity:redraw():truncate { max = parent_self._area.w }
+  		else
+  			-- Using smart truncate
+  			entities[#entities + 1] = ui.Line({ entity:redraw() }):style(entity:style())
+  		end
+  	end
+  
+  	return {
+  		ui.List(entities):area(parent_self._area),
+  	}
+  end
 ```
 
 #### For relative-motions (my fork) plugin users:
