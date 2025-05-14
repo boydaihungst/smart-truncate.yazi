@@ -58,6 +58,7 @@ smart_truncate:setup({
 	render_current = true,
 	-- Default only name and symlink will be truncated if overflow. 4 -> highlights/name, 6 -> symlink
 	-- IDs can be found in https://github.com/sxyazi/yazi/blob/main/yazi-plugin/preset/components/entity.lua#L4-L9
+	-- For other official components, see Advaned Usage section below
 	-- resizable_entity_children_ids = { 4, 6 },
 })
 ```
@@ -80,7 +81,7 @@ Add this after `smart_truncate:setup(...)` function:
   end
   ```
 
-  1. Using component function name, like this official [Entity._children list](https://github.com/sxyazi/yazi/blob/main/yazi-plugin/preset/components/entity.lua#L4-L9):
+  1. Using component function name, like this official [Entity.\_children list](https://github.com/sxyazi/yazi/blob/main/yazi-plugin/preset/components/entity.lua#L4-L9):
      By default, highlights/name and symlink are already added.
 
   ```lua
@@ -140,12 +141,12 @@ Parent pane:
 
 ```lua
   local smart_truncate_entity_plugin_ok, smart_truncate_entity_plugin = pcall(require, "smart-truncate")
-  
+
   Parent.redraw = function(parent_self)
   	if not parent_self._folder then
   		return {}
   	end
-  
+
   	local entities = {}
   	local parent_tab_window_w = parent_self._area.w
   	for _, f in ipairs(parent_self._folder.window) do
@@ -171,7 +172,7 @@ Parent pane:
   			entities[#entities + 1] = ui.Line({ entity:redraw() }):style(entity:style())
   		end
   	end
-  
+
   	return {
   		ui.List(entities):area(parent_self._area),
   	}
