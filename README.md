@@ -13,6 +13,7 @@ A [Yazi](https://github.com/sxyazi/yazi) plugin that truncates any entity compon
   ![](assets/2025-05-15-04-24-13.png)
 
 - Parent pane:
+
   ![](assets/2025-05-15-04-23-46.png)
 
 - Preview pane:
@@ -134,6 +135,7 @@ You can use `smart_truncate_entity_plugin:smart_truncate_entity(entity, max_widt
 For example, this relative-motions (my fork) plugin:
 
 Parent pane:
+
 ![](assets/2025-05-15-04-15-30.png)
 
 ```lua
