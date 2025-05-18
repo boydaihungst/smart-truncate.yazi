@@ -1,4 +1,4 @@
---- @since 25.2.7
+--- @since 25.4.8
 --- @sync peek
 --- NOTE: REMOVE :parent() :name() :is_hovered() :ext() after upgrade to v25.4.4
 --- https://github.com/sxyazi/yazi/pull/2572
@@ -534,10 +534,7 @@ function M:init_default_callbacks(always_show_patterns)
 		if entity_self._file.cha.is_dir then
 			shortened_name = M:shorten(max_length, name, "", always_show_patterns)
 		else
-			local ext = (
-				type(entity_self._file.url.ext) == "function" and entity_self._file.url:ext()
-				or entity_self._file.url.ext
-			) or ""
+			local ext = entity_self._file.url.ext
 
 			suffix = (not ext or ext == "") and "" or ("." .. ext)
 			shortened_name = M:shorten(max_length, name, suffix, always_show_patterns)
@@ -638,7 +635,7 @@ function M:init_default_callbacks(always_show_patterns)
 		local prefix = " -> "
 		local max_length = entity_self:get_component_max_length("symlink") or 0
 
-		local to_extension = type(link_to.ext) == "function" and link_to:ext() or link_to.ext
+		local to_extension = link_to.ext
 		local suffix = (not to_extension or to_extension == "") and "" or ("." .. to_extension)
 		local shortened = M:shorten(max_length, prefix .. tostring(link_to), suffix, always_show_patterns)
 
