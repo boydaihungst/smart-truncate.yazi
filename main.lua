@@ -58,6 +58,7 @@ local function shorten_suffix(max_width, long_string_without_suffix, suffix)
 	end
 
 	-- local long_string_without_suffix = remove_suffix(long_string_without_suffix, suffix)
+	local original_suffix = suffix
 	suffix = "…" .. suffix
 	local suffix_len = ui.Line(suffix):width()
 
@@ -71,13 +72,10 @@ local function shorten_suffix(max_width, long_string_without_suffix, suffix)
 		return suffix .. "…"
 	end
 
-	local result = utf8_sub(long_string_without_suffix, 1, cut_width)
-	local render_size = ui.Line(result .. suffix):width()
-	if render_size > 0 and render_size > max_width then
-		cut_width = cut_width - (render_size - max_width)
-		result = utf8_sub(long_string_without_suffix, 1, cut_width)
+	local result = ya.truncate(long_string_without_suffix, { max = cut_width + 1 })
+	if string.find(result, "…$") then
+		return result .. original_suffix
 	end
-
 	return result .. suffix
 end
 
