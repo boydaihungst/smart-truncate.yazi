@@ -5,15 +5,6 @@
 
 local M = {}
 
-local DEFAULT_COMPONENT_IDS = { 4, 6 }
-local function remove_suffix(str, suffix)
-	if str:sub(-#suffix) == suffix then
-		return str:sub(1, -#suffix - 1)
-	else
-		return str
-	end
-end
-
 local function to_unique_set(t)
 	local result = {}
 	for _, v in ipairs(t) do
@@ -24,27 +15,297 @@ local function to_unique_set(t)
 	return result
 end
 
+function M:is_literal_string(str)
+	return str:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1")
+end
+
+local function utf8_sub(str, start_char, end_char)
+	local start_byte = utf8.offset(str, start_char) -- Expects start_char to be a character index
+	local end_byte = end_char and (utf8.offset(str, end_char + 1) or (#str + 1)) - 1 -- Expects end_char
+	if not start_byte then
+		return ""
+	end
+	return str:sub(start_byte, end_byte)
+end
+
+local function remove_suffix(str, suffix)
+	if suffix == "" then
+		return str
+	end
+	local str_len = utf8.len(str)
+	local suffix_len = utf8.len(suffix)
+	local end_of_str = utf8_sub(str, str_len - suffix_len + 1, str_len)
+	if end_of_str == suffix then
+		return utf8_sub(str, 1, str_len - suffix_len)
+	else
+		return str
+	end
+end
+
 ---shorten string
 ---@param max_width number max characters
----@param long_string string string
+---@param long_string_without_suffix string string
 ---@param suffix? string file extentions or any thing which will shows at the end when file is truncated
----@return { result: string, suffix: string, suffix_len: number }
-function M:shorten(max_width, long_string, suffix)
+---@return string
+local function shorten_suffix(max_width, long_string_without_suffix, suffix)
+	suffix = suffix or ""
+	max_width = max_width < 0 and 0 or max_width
+	long_string_without_suffix = long_string_without_suffix or ""
+	local long_string_length = ui.Line(long_string_without_suffix .. suffix):width()
+
+	if long_string_length <= max_width then
+		return long_string_without_suffix .. suffix
+	end
+
+	-- local long_string_without_suffix = remove_suffix(long_string_without_suffix, suffix)
+	suffix = "…" .. suffix
+	local suffix_len = ui.Line(suffix):width()
+
+	local cut_width = max_width - suffix_len
+
+	if cut_width == 0 then
+		suffix = utf8_sub(suffix, 1, max_width)
+		return suffix
+	elseif cut_width < 0 then
+		suffix = utf8_sub(suffix, 1, max_width - 1)
+		return suffix .. "…"
+	end
+
+	local result = utf8_sub(long_string_without_suffix, 1, cut_width)
+	local render_size = ui.Line(result .. suffix):width()
+	if render_size > 0 and render_size > max_width then
+		cut_width = cut_width - (render_size - max_width)
+		result = utf8_sub(long_string_without_suffix, 1, cut_width)
+	end
+
+	return result .. suffix
+end
+
+local function shortern_array_strings(
+	array_strings,
+	usable_space,
+	resize_order,
+	last_component_idx,
+	list_display_order_hidden
+)
+	local count_resizable_part = 0
+	local count_resizable_part_higher_order_length = 0
+	list_display_order_hidden = list_display_order_hidden or {}
+
+	for i = #array_strings, 1, -1 do
+		if not array_strings[i] or utf8.len(array_strings[i].segment) == 0 then
+			table.remove(array_strings, i)
+		else
+			if array_strings[i].resize_order == resize_order then
+				count_resizable_part = count_resizable_part + 1
+			end
+			if array_strings[i].resize_order > resize_order then
+				count_resizable_part_higher_order_length = count_resizable_part_higher_order_length
+					+ array_strings[i].length
+			end
+		end
+	end
+
+	usable_space = usable_space - count_resizable_part_higher_order_length
+
+	-- calculate max_length for each resizable component/children
+	for idx, str_part in ipairs(array_strings) do
+		if str_part.resize_order == resize_order then
+			if usable_space <= 1 then
+				-- usable_space = usable_space + 1
+				if str_part.length >= 1 then
+					if usable_space + count_resizable_part_higher_order_length > 0 then
+						count_resizable_part_higher_order_length = count_resizable_part_higher_order_length - 1
+						array_strings[idx].max_length = 1
+						array_strings[idx].segment_shortened = "…"
+					else
+						array_strings[idx].max_length = 0
+						array_strings[idx].segment_shortened = ""
+					end
+				else
+					array_strings[idx].max_length = 0
+					array_strings[idx].segment_shortened = ""
+				end
+			elseif str_part.length <= usable_space - count_resizable_part then
+				array_strings[idx].max_length = str_part.length
+				array_strings[idx].segment_shortened = str_part.segment
+			else
+				array_strings[idx].max_length = math.abs(usable_space - count_resizable_part)
+				if array_strings[idx].max_length <= 0 then
+					array_strings[idx].max_length = 1
+				end
+				array_strings[idx].segment_shortened =
+					shorten_suffix(array_strings[idx].max_length, array_strings[idx].segment)
+			end
+
+			count_resizable_part = count_resizable_part - 1
+			if string.match(array_strings[idx].segment_shortened, "…$") then
+				if array_strings[idx + 1] and array_strings[idx + 1].segment_shortened == "…" then
+					array_strings[idx + 1].segment_shortened = ""
+					array_strings[idx + 1].max_length = 0
+					usable_space = usable_space + 1
+				end
+			end
+			if
+				array_strings[idx].segment_shortened == "…"
+				and array_strings[idx - 1]
+				and array_strings[idx - 1].segment_shortened == "…$"
+			then
+				array_strings[idx].segment_shortened = ""
+				array_strings[idx].max_length = 0
+				usable_space = usable_space + 1
+			end
+			if
+				string.find(array_strings[idx].segment_shortened, "…")
+				and (
+					not last_component_idx
+					or utf8.len(array_strings[idx].segment_shortened)
+						> utf8.len(array_strings[last_component_idx].segment_shortened)
+				)
+			then
+				last_component_idx = idx
+			end
+			usable_space = usable_space - array_strings[idx].max_length
+		end
+	end
+	usable_space = usable_space + count_resizable_part_higher_order_length
+
+	-- add left over space to last/longest length resizable component
+	if usable_space > 0 then
+		if resize_order == 3 then
+			if last_component_idx then
+				array_strings[last_component_idx].max_length = array_strings[last_component_idx].max_length
+					+ usable_space
+				array_strings[last_component_idx].segment_shortened = shorten_suffix(
+					array_strings[last_component_idx].max_length,
+					array_strings[last_component_idx].segment
+				)
+			end
+		else
+			array_strings = shortern_array_strings(
+				array_strings,
+				usable_space,
+				resize_order + 1,
+				last_component_idx,
+				list_display_order_hidden
+			)
+		end
+	end
+
+	return array_strings
+end
+
+---@param max_width number max characters
+---@param string_with_suffix string string
+---@param suffix? string file extentions or any thing which will shows at the end when file is truncated
+---@param always_show_patterns? string[] anystring match one of this lua patterns will be always show when file is truncated, unless the space is not enough
+---@return string
+function M:shorten(max_width, string_with_suffix, suffix, always_show_patterns)
+	-- Remove empty pattern
+	if always_show_patterns ~= nil then
+		for i = #always_show_patterns, 1, -1 do
+			if not always_show_patterns[i] == "" or utf8.len(always_show_patterns[i]) == 0 then
+				table.remove(always_show_patterns, i)
+			end
+		end
+	end
+
 	suffix = suffix or ""
 	max_width = max_width or 0
-	long_string = long_string or ""
-	local _suffix = "…" .. suffix
-	local _suffix_len = utf8.len(_suffix)
-	local s_removed_suffix = remove_suffix(long_string, suffix)
-	if utf8.len(long_string) <= max_width then
-		return { result = long_string, suffix = "", suffix_len = 0 }
+	local string_without_suffix = remove_suffix(string_with_suffix, suffix) or ""
+	if not always_show_patterns or #always_show_patterns == 0 or max_width <= utf8.len("…" .. suffix) then
+		return shorten_suffix(max_width, string_without_suffix, suffix)
 	end
-	local cut_width = max_width - _suffix_len
-	if cut_width < 0 then
-		return { result = _suffix:sub(1, max_width), suffix = _suffix, suffix_len = _suffix_len }
+
+	local result_with_order_flags = {}
+	local last_byte_end = 1
+	local byte_input_len = #string_without_suffix
+
+	local display_order = 0
+	-- Collect all matches from all patterns
+	local matches = {}
+
+	for _, pat in ipairs(always_show_patterns) do
+		for byte_start_pos, byte_end_pos in string_without_suffix:gmatch("()" .. pat .. "()") do
+			table.insert(matches, { start = byte_start_pos, stop = byte_end_pos })
+		end
 	end
-	local result = s_removed_suffix:sub(1, cut_width) .. _suffix
-	return { result = result, suffix = _suffix, suffix_len = _suffix_len }
+
+	-- Sort matches by start position
+	table.sort(matches, function(a, b)
+		return a.start < b.start
+	end)
+
+	-- Remove overlapping matches (optional, based on use case)
+	local non_overlapping = {}
+	local last_end = 0
+	for _, m in ipairs(matches) do
+		if m.start >= last_end then
+			table.insert(non_overlapping, m)
+			last_end = m.stop
+		end
+	end
+
+	-- Process matched and unmatched segments
+	for _, m in ipairs(non_overlapping) do
+		local byte_start_pos = m.start
+		local byte_end_pos = m.stop
+
+		if byte_start_pos > last_byte_end then
+			display_order = display_order + 1
+			local unmatched = string_without_suffix:sub(last_byte_end, byte_start_pos - 1)
+			table.insert(result_with_order_flags, {
+				segment = unmatched,
+				length = utf8.len(unmatched),
+				resize_order = 1,
+				display_order = display_order,
+			})
+		end
+
+		display_order = display_order + 1
+		local matched = string_without_suffix:sub(byte_start_pos, byte_end_pos - 1)
+		table.insert(result_with_order_flags, {
+			segment = matched,
+			length = utf8.len(matched),
+			resize_order = 2,
+			display_order = display_order,
+		})
+
+		last_byte_end = byte_end_pos
+	end
+
+	-- Add any remaining non-matching tail
+	if last_byte_end <= byte_input_len then
+		display_order = display_order + 1
+		local segment = string_without_suffix:sub(last_byte_end)
+		table.insert(result_with_order_flags, {
+			segment = segment,
+			length = utf8.len(segment),
+			resize_order = 1,
+			display_order = display_order,
+		})
+	end
+
+	-- Case not matched any pattern
+	if #result_with_order_flags == 1 then
+		return shorten_suffix(max_width, string_without_suffix, suffix)
+	end
+
+	if suffix and utf8.len(suffix) > 0 then
+		table.insert(
+			result_with_order_flags,
+			{ segment = suffix, length = utf8.len(suffix), resize_order = 3, display_order = display_order + 1 }
+		)
+	end
+
+	result_with_order_flags = shortern_array_strings(result_with_order_flags, max_width, 1)
+	local final_result = ""
+	for _, item in ipairs(result_with_order_flags) do
+		if item.segment_shortened then
+			final_result = final_result .. item.segment_shortened
+		end
+	end
+	return final_result
 end
 
 --- Function to truncate entity
@@ -121,9 +382,6 @@ function M:smart_truncate_entity(entity, max_width)
 				end
 			end
 			-- add left over space to last/longest length resizable component
-			-- NOTE: DE QUY longest -> shortest -> cong dan dan usable_space_left_over.
-			-- Check if c.length - max_length <= usable_space_left_over_partial -> max_length = c.length && usable_space = usable_space - (c.length - max_length) -> De quy tiep
-			-- else max_length = max_length + usable_space_left_over_partial
 			if usable_space > 0 and last_component_id then
 				entity_self._components[last_component_id].max_length = entity_self._components[last_component_id].max_length
 					+ usable_space
@@ -264,7 +522,7 @@ function Entity:get_component_id_by_fn_name(component_fn_name)
 	end
 end
 
-function M:init_default_callbacks()
+function M:init_default_callbacks(always_show_patterns)
 	local thisPlugin = self
 	thisPlugin:children_add("highlights", function(entity_self)
 		-- override these resizeable components/children render function then re-render the whole entity with truncated/shortened value
@@ -276,7 +534,7 @@ function M:init_default_callbacks()
 		-- get max_length if highlight is resizable
 		local max_length = entity_self:get_component_max_length("highlights") or 0
 		if entity_self._file.cha.is_dir then
-			shortened_name = M:shorten(max_length, name, "")
+			shortened_name = M:shorten(max_length, name, "", always_show_patterns)
 		else
 			local ext = (
 				type(entity_self._file.url.ext) == "function" and entity_self._file.url:ext()
@@ -284,50 +542,86 @@ function M:init_default_callbacks()
 			) or ""
 
 			suffix = (not ext or ext == "") and "" or ("." .. ext)
-			shortened_name = M:shorten(max_length, name, suffix)
+			shortened_name = M:shorten(max_length, name, suffix, always_show_patterns)
 		end
 
 		local highlights = entity_self._file:highlights()
 		if not highlights or #highlights == 0 then
-			return shortened_name.result
+			return shortened_name
 		end
 
 		-- This will run when use find command
 		---@see https://yazi-rs.github.io/docs/configuration/keymap#manager.find
-		local highlight_spans, last = {}, 0
+		local matched_keyword = {}
 
 		for _, h in ipairs(highlights) do
-			if h[2] > utf8.len(shortened_name.result) - shortened_name.suffix_len then
-				h[2] = utf8.len(shortened_name.result) - shortened_name.suffix_len
-				if h[2] <= 0 then
-					-- escape when highlight position is hidden
-					goto break_highlight_loop
+			matched_keyword[#matched_keyword + 1] = name:sub(h[1] + 1, h[2])
+		end
+
+		-- NOTE: Manually check find matched keyword
+		if #matched_keyword > 0 then
+			local result_with_matched_highlighted = {}
+			local current_byte_cursor = 1 -- Start of the next segment to process (byte index)
+			local byte_input_len = #shortened_name
+
+			-- Collect all matches from all patterns
+			local matches = {}
+			for _, pat in ipairs(matched_keyword) do
+				-- Ensure pat is treated as a literal string for the pattern
+				local literal_pat = thisPlugin:is_literal_string(pat)
+				if literal_pat ~= "" then -- Avoid empty patterns if is_literal_string could return one
+					for byte_start_pos, byte_end_pos_after_match in shortened_name:gmatch("()" .. literal_pat .. "()") do
+						table.insert(matches, { start = byte_start_pos, stop = byte_end_pos_after_match })
+					end
 				end
 			end
-			if h[1] > utf8.len(shortened_name.result) - shortened_name.suffix_len then
-				-- escape when highlight position is hidden
-				goto break_highlight_loop
-			end
-			-- find command result not matched part
-			-- from last to h1
-			if h[1] > last then
-				highlight_spans[#highlight_spans + 1] = ui.Span(shortened_name.result:sub(last + 1, h[1]))
-			end
-			-- find command result matched part
-			-- from h1 to h2
-			highlight_spans[#highlight_spans + 1] = ui.Span(shortened_name.result:sub(h[1] + 1, h[2]))
-				:style((th.mgr or THEME.manager).find_keyword)
-			last = h[2]
-		end
 
-		::break_highlight_loop::
-		-- the rest not matched
-		-- from h2 to the end of file/folder name
-		if last < utf8.len(shortened_name.result) then
-			highlight_spans[#highlight_spans + 1] = ui.Span(shortened_name.result:sub(last + 1))
-		end
+			-- Sort matches by start position
+			table.sort(matches, function(a, b)
+				return a.start < b.start
+			end)
 
-		return ui.Line(highlight_spans)
+			-- Remove overlapping matches
+			local non_overlapping = {}
+			local last_match_byte_end = 0
+			for _, m in ipairs(matches) do
+				if m.start >= last_match_byte_end then
+					table.insert(non_overlapping, m)
+					last_match_byte_end = m.stop
+				end
+			end
+
+			-- Process matched and unmatched segments using byte offsets with string.sub
+			for _, m in ipairs(non_overlapping) do
+				local match_start_byte = m.start -- Byte index where match begins
+				local match_end_byte_after = m.stop -- Byte index *after* the end of the match
+
+				-- Unmatched segment before the current match
+				if match_start_byte > current_byte_cursor then
+					local unmatched_segment = shortened_name:sub(current_byte_cursor, match_start_byte - 1)
+					table.insert(result_with_matched_highlighted, unmatched_segment)
+				end
+
+				-- Matched segment
+				local matched_segment_text = shortened_name:sub(match_start_byte, match_end_byte_after - 1)
+				local styled_matched_segment = ui.Span(matched_segment_text)
+					:style((th.mgr or THEME.manager).find_keyword)
+				table.insert(result_with_matched_highlighted, styled_matched_segment)
+
+				current_byte_cursor = match_end_byte_after -- Move cursor to position after current match
+			end
+
+			-- Add any remaining non-matching tail segment
+			if current_byte_cursor <= byte_input_len then
+				local tail_segment = shortened_name:sub(current_byte_cursor) -- from cursor to end
+				table.insert(result_with_matched_highlighted, tail_segment)
+			end
+
+			if #result_with_matched_highlighted <= 1 then
+				return ui.Line(shortened_name)
+			end
+			return ui.Line(result_with_matched_highlighted)
+		end
 	end)
 
 	thisPlugin:children_add("symlink", function(entity_self)
@@ -348,24 +642,33 @@ function M:init_default_callbacks()
 
 		local to_extension = type(link_to.ext) == "function" and link_to:ext() or link_to.ext
 		local suffix = (not to_extension or to_extension == "") and "" or ("." .. to_extension)
-		local shortened = M:shorten(max_length, prefix .. tostring(link_to), suffix)
+		local shortened = M:shorten(max_length, prefix .. tostring(link_to), suffix, always_show_patterns)
 
-		return ui.Span(shortened.result):style((th.mgr or THEME.manager).symlink_target)
+		return ui.Span(shortened):style((th.mgr or THEME.manager).symlink_target)
 	end)
+end
+
+function M:is_setup_loaded()
+	return self.setup_loaded
 end
 
 function M:setup(opts)
 	self.resizable_entity_children_ids = {}
+	local always_show_patterns = nil
 	if type(opts) == "table" then
 		self.render_parent = opts.render_parent ~= nil and opts.render_parent
 		self.render_current = opts.render_current ~= nil and opts.render_current
 		if type(opts.resizable_entity_children_ids) == "table" then
 			self.resizable_entity_children_ids = opts.resizable_entity_children_ids
 		end
+		if type(opts.always_show_patterns) == "table" then
+			always_show_patterns = opts.always_show_patterns
+		end
 	end
 	self.children_callbacks = {}
-	self:init_default_callbacks()
+	self:init_default_callbacks(always_show_patterns)
 	self:render_entities()
+	self.setup_loaded = true
 end
 
 --- Add a callback function for a component
