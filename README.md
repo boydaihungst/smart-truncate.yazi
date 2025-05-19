@@ -4,7 +4,7 @@ A [Yazi](https://github.com/sxyazi/yazi) plugin to truncate any component when r
 
 ## Requirements
 
-- [Yazi](https://github.com/sxyazi/yazi) >= v25.2.7
+- [Yazi](https://github.com/sxyazi/yazi) >= v25.4.8
 
 ## Previews
 
@@ -68,7 +68,7 @@ smart_truncate:setup({
 
 	-- A list of lua patterns which will always show when file is truncated, unless the space is not enough
 	-- Learn more about lua patterns: https://www.lua.org/pil/20.2.html or ask AI for help
-	always_show_patterns = { "%- S%d%dE%d%d %- %d+ %-", " ?Bluray%-%d+p", " ?WEBDL%-%d+p" }, -- default nil, Optional
+	always_show_patterns = { "%- S%d%dE%d%d %- %d+ %-", " ?Bluray%-%d+p", " ?WEBDL%-%d+p", smart_truncate:is_literal_string("this is literal string") }, -- default nil, Optional
 })
 ```
 

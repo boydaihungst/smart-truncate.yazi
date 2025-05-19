@@ -1,7 +1,5 @@
 --- @since 25.4.8
 --- @sync peek
---- NOTE: REMOVE :parent() :name() :is_hovered() :ext() after upgrade to v25.4.4
---- https://github.com/sxyazi/yazi/pull/2572
 
 local M = {}
 
@@ -599,8 +597,7 @@ function M:init_default_callbacks(always_show_patterns)
 
 				-- Matched segment
 				local matched_segment_text = shortened_name:sub(match_start_byte, match_end_byte_after - 1)
-				local styled_matched_segment = ui.Span(matched_segment_text)
-					:style((th.mgr or THEME.manager).find_keyword)
+				local styled_matched_segment = ui.Span(matched_segment_text):style(th.mgr.find_keyword)
 				table.insert(result_with_matched_highlighted, styled_matched_segment)
 
 				current_byte_cursor = match_end_byte_after -- Move cursor to position after current match
@@ -623,7 +620,7 @@ function M:init_default_callbacks(always_show_patterns)
 		-- override these resizeable components/children render function then re-render the whole entity with truncated/shortened value
 
 		-- override symlink Entity:symlink function
-		if not (rt and rt.mgr or MANAGER).show_symlink then
+		if not rt.mgr.show_symlink then
 			return ""
 		end
 
@@ -639,7 +636,7 @@ function M:init_default_callbacks(always_show_patterns)
 		local suffix = (not to_extension or to_extension == "") and "" or ("." .. to_extension)
 		local shortened = M:shorten(max_length, prefix .. tostring(link_to), suffix, always_show_patterns)
 
-		return ui.Span(shortened):style((th.mgr or THEME.manager).symlink_target)
+		return ui.Span(shortened):style(th.mgr.symlink_target)
 	end)
 end
 
