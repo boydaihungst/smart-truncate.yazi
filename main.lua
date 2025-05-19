@@ -26,6 +26,27 @@ local function utf8_sub(str, start_char, end_char)
 	return str:sub(start_byte, end_byte)
 end
 
+local function utf8_remove_last_ellipsis(str)
+	local len = 0
+	for _ in utf8.codes(str) do
+		len = len + 1
+	end
+	if len == 0 then
+		return ""
+	end
+
+	-- Get last character codepoint
+	local last_char_start = utf8.offset(str, -1)
+	local last_char = str:sub(last_char_start)
+
+	if last_char == "…" then
+		-- Remove last character
+		return utf8_sub(str, 1, len - 1)
+	else
+		return str
+	end
+end
+
 local function remove_suffix(str, suffix)
 	if suffix == "" then
 		return str
@@ -135,31 +156,40 @@ local function shortern_array_strings(
 			end
 
 			count_resizable_part = count_resizable_part - 1
-			if string.match(array_strings[idx].segment_shortened, "…$") then
+			::recheck::
+			if
+				array_strings[idx].segment_shortened == "^…"
+				and array_strings[idx - 1]
+				and array_strings[idx - 1].segment_shortened
+			then
+				if string.match(array_strings[idx - 1].segment_shortened, ".+…$") then
+					array_strings[idx - 1].segment_shortened =
+						utf8_remove_last_ellipsis(array_strings[idx - 1].segment_shortened)
+					array_strings[idx - 1].max_length = array_strings[idx - 1].max_length - 1
+					usable_space = usable_space + 1
+					array_strings[idx].max_length = array_strings[idx].max_length + 1
+					array_strings[idx].segment_shortened =
+						shorten_suffix(array_strings[idx].max_length, array_strings[idx].segment)
+					goto recheck
+					-- end
+				elseif array_strings[idx - 1].segment_shortened == "…" then
+					array_strings[idx - 1].segment_shortened = ""
+					array_strings[idx - 1].max_length = 0
+					usable_space = usable_space + 1
+					array_strings[idx].max_length = array_strings[idx].max_length + 1
+					array_strings[idx].segment_shortened =
+						shorten_suffix(array_strings[idx].max_length, array_strings[idx].segment)
+					goto recheck
+				end
+			elseif string.match(array_strings[idx].segment_shortened, "…$") then
 				if array_strings[idx + 1] and array_strings[idx + 1].segment_shortened == "…" then
 					array_strings[idx + 1].segment_shortened = ""
 					array_strings[idx + 1].max_length = 0
 					usable_space = usable_space + 1
+					array_strings[idx].max_length = array_strings[idx].max_length + 1
+					array_strings[idx].segment_shortened =
+						shorten_suffix(array_strings[idx].max_length, array_strings[idx].segment)
 				end
-			end
-			if
-				array_strings[idx].segment_shortened == "…"
-				and array_strings[idx - 1]
-				and array_strings[idx - 1].segment_shortened == "…$"
-			then
-				array_strings[idx].segment_shortened = ""
-				array_strings[idx].max_length = 0
-				usable_space = usable_space + 1
-			end
-			if
-				string.find(array_strings[idx].segment_shortened, "…")
-				and (
-					not last_component_idx
-					or utf8.len(array_strings[idx].segment_shortened)
-						> utf8.len(array_strings[last_component_idx].segment_shortened)
-				)
-			then
-				last_component_idx = idx
 			end
 			usable_space = usable_space - array_strings[idx].max_length
 		end
@@ -169,13 +199,23 @@ local function shortern_array_strings(
 	-- add left over space to last/longest length resizable component
 	if usable_space > 0 then
 		if resize_order == 3 then
-			if last_component_idx then
-				array_strings[last_component_idx].max_length = array_strings[last_component_idx].max_length
-					+ usable_space
-				array_strings[last_component_idx].segment_shortened = shorten_suffix(
-					array_strings[last_component_idx].max_length,
-					array_strings[last_component_idx].segment
-				)
+			for _resize_order = 3, 1, -1 do
+				if usable_space <= 0 then
+					break
+				end
+				for idx, str_part in ipairs(array_strings) do
+					if str_part.resize_order == _resize_order and str_part.max_length < str_part.length then
+						if array_strings[idx].max_length + usable_space >= array_strings[idx].length then
+							usable_space = usable_space - (array_strings[idx].length - array_strings[idx].max_length)
+							array_strings[idx].max_length = array_strings[idx].length
+						else
+							array_strings[idx].max_length = array_strings[idx].max_length + usable_space
+							usable_space = 0
+						end
+						array_strings[idx].segment_shortened =
+							shorten_suffix(array_strings[idx].max_length, array_strings[idx].segment)
+					end
+				end
 			end
 		else
 			array_strings = shortern_array_strings(
