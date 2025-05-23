@@ -1,4 +1,6 @@
-# smart-truncate.yazi
+# smart-truncate.yazi (deprecated)
+
+DEPRECATED: In favor of yazi official truncate method. I will still fix this plugin to compatible with future updates of yazi, but won't fix any issue.
 
 A [Yazi](https://github.com/sxyazi/yazi) plugin to truncate any component when rendering using Entity.
 
