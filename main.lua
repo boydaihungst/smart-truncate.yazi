@@ -1,4 +1,4 @@
---- @since 25.4.8
+--- @since 25.5.28
 --- @sync peek
 
 local M = {}
@@ -475,7 +475,7 @@ function M:render_current_entities()
 		for _, f in ipairs(files) do
 			local entity = Entity:new(f)
 			local linemode_rendered = Linemode:new(f):redraw()
-			local linemode_char_length = linemode_rendered:align(ui.Text.RIGHT):width()
+			local linemode_char_length = linemode_rendered:align(ui.Align.RIGHT):width()
 			-- smart truncate
 			thisPlugin:smart_truncate_entity(entity, current_tab_window_w - linemode_char_length)
 			entities[#entities + 1] = ui.Line({ entity:redraw() }):style(entity:style())
@@ -484,7 +484,7 @@ function M:render_current_entities()
 
 		return {
 			ui.List(entities):area(self._area),
-			ui.Text(linemodes):area(self._area):align(ui.Text.RIGHT),
+			ui.Text(linemodes):area(self._area):align(ui.Align.RIGHT),
 		}
 	end
 end
@@ -503,7 +503,7 @@ function M:peek(job)
 	if #folder.files == 0 then
 		local done, err = folder.stage()
 		local s = not done and "Loading..." or not err and "No items" or string.format("Error: %s", err)
-		return ya.preview_widget(job, ui.Line(s):area(job.area):align(ui.Line.CENTER))
+		return ya.preview_widget(job, ui.Line(s):area(job.area):align(ui.Align.CENTER))
 	end
 
 	local entities = {}
@@ -584,7 +584,7 @@ function M:init_default_callbacks(always_show_patterns)
 		end
 
 		-- This will run when use find command
-		---@see https://yazi-rs.github.io/docs/configuration/keymap#manager.find
+		---@see https://yazi-rs.github.io/docs/configuration/keymap#mgr.find
 		local matched_keyword = {}
 
 		for _, h in ipairs(highlights) do

@@ -6,7 +6,7 @@ A [Yazi](https://github.com/sxyazi/yazi) plugin to truncate any component when r
 
 ## Requirements
 
-- [Yazi](https://github.com/sxyazi/yazi) >= v25.4.8
+- [Yazi](https://github.com/sxyazi/yazi) >= v25.5.28
 
 ## Previews
 
@@ -29,6 +29,8 @@ A [Yazi](https://github.com/sxyazi/yazi) plugin to truncate any component when r
 ## Installation
 
 ```sh
+ya pkg add boydaihungst/smart-truncate
+# or
 ya pack -a boydaihungst/smart-truncate
 ```
 
