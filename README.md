@@ -6,7 +6,7 @@ A [Yazi](https://github.com/sxyazi/yazi) plugin to truncate any component when r
 
 ## Requirements
 
-- [Yazi](https://github.com/sxyazi/yazi) >= v25.5.28
+- [Yazi](https://github.com/sxyazi/yazi) >= v25.5.31
 
 ## Previews
 

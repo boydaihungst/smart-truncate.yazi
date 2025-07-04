@@ -1,4 +1,4 @@
---- @since 25.5.28
+--- @since 25.5.31
 --- @sync peek
 
 local M = {}
@@ -91,7 +91,8 @@ local function shorten_suffix(max_width, long_string_without_suffix, suffix)
 		return suffix .. "…"
 	end
 
-	local result = ya.truncate(long_string_without_suffix, { max = cut_width + 1 })
+	--TODO: remove this after next yazi released
+	local result = (ui.truncate or ya.truncate)(long_string_without_suffix, { max = cut_width + 1 })
 	if string.find(result, "…$") then
 		return result .. original_suffix
 	end
