@@ -42,6 +42,10 @@ If you want to use this as a previewer, add this to your `yazi.toml`:
 This will replace `folder` previewer with `smart-truncate` previewer.
 More info: https://yazi-rs.github.io/docs/plugins/overview#previewer
 
+> [!IMPORTANT]
+>
+> For yazi nightly replace `name` with `url`
+
 ```toml
   prepend_previewers = [
     { name = "*/", run = "smart-truncate" },
